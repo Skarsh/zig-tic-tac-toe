@@ -1,19 +1,88 @@
 const std = @import("std");
 
+const Mark = enum { E, X, O };
+
+const Board = struct {
+    tiles: [9]Mark,
+
+    pub fn setTile(self: *Board, tileIdx: usize, mark: Mark) void {
+        self.tiles[tileIdx] = mark;
+    }
+
+    pub fn print(self: Board) void {
+        var cnt: i32 = 0;
+        for (self.tiles) |mark| {
+            if (@mod(cnt, 3) == 0 and cnt != 0) {
+                std.debug.print("\n", .{});
+            }
+            switch (mark) {
+                Mark.E => std.debug.print(". ", .{}),
+                Mark.X => std.debug.print("X ", .{}),
+                Mark.O => std.debug.print("O ", .{}),
+            }
+            if (cnt == 8) {
+                std.debug.print("\n", .{});
+            }
+            cnt += 1;
+        }
+    }
+};
+
+const Player = enum { X, O };
+
+const Game = struct {
+    board: Board,
+    playerIsX: bool,
+
+    pub fn move(self: *Game, tileIdx: usize) void {
+        if (self.playerIsX) {
+            self.board.setTile(tileIdx, Mark.X);
+        } else {
+            self.board.setTile(tileIdx, Mark.O);
+        }
+        self.swapPlayer();
+    }
+
+    fn swapPlayer(self: *Game) void {
+        self.playerIsX = !self.playerIsX;
+    }
+
+    fn checkWinCondition(self: Game) bool {
+        _ = self;
+    }
+};
+
+fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
+    var line = (try reader.readUntilDelimiterOrEof(buffer, '\n')) orelse return null;
+    // trim annoying windows-only carriage return character
+    if (@import("builtin").os.tag == .windows) {
+        return std.mem.trimRight(u8, line, "\r");
+    } else {
+        return line;
+    }
+}
+
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var board = Board{ .tiles = [9]Mark{
+        .E, .E, .E,
+        .E, .E, .E,
+        .E, .E, .E,
+    } };
+    board.tiles[0] = Mark.X;
+    board.tiles[3] = Mark.X;
+    board.setTile(4, Mark.O);
+    board.print();
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    var running = true;
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    const stdin = std.io.getStdIn();
 
-    try bw.flush(); // don't forget to flush!
+    var buffer: [100]u8 = undefined;
+    while (running) {
+        std.debug.print("Your move: ", .{});
+        const input = (try nextLine(stdin.reader(), &buffer)).?;
+        std.debug.print("input: {s}\n", .{input});
+    }
 }
 
 test "simple test" {
