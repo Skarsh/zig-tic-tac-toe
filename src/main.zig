@@ -3,9 +3,10 @@ const std = @import("std");
 const Mark = enum { E, X, O };
 
 const Board = struct {
+    const Self = @This();
     tiles: [9]Mark,
 
-    pub fn setTile(self: *Board, tileIdx: usize, mark: Mark) void {
+    pub fn setTile(self: *Self, tileIdx: usize, mark: Mark) void {
         self.tiles[tileIdx] = mark;
     }
 
@@ -30,25 +31,62 @@ const Board = struct {
 
 const Player = enum { X, O };
 
+const WinCondition = enum { Win, Draw, None };
+
 const Game = struct {
+    const Self = @This();
     board: Board,
     playerIsX: bool,
 
-    pub fn move(self: *Game, tileIdx: usize) void {
+    pub fn move(self: *Self, tileIdx: usize) bool {
+        if (self.board.tiles[tileIdx] != Mark.E) {
+            return false;
+        }
         if (self.playerIsX) {
             self.board.setTile(tileIdx, Mark.X);
         } else {
             self.board.setTile(tileIdx, Mark.O);
         }
         self.swapPlayer();
+        return true;
     }
 
     fn swapPlayer(self: *Game) void {
         self.playerIsX = !self.playerIsX;
     }
 
-    fn checkWinCondition(self: Game) bool {
-        _ = self;
+    fn checkWinCondition(self: Game) WinCondition {
+        const tiles = self.board.tiles;
+
+        if (tiles[0] == tiles[1] and tiles[0] == tiles[2] and tiles[0] != Mark.E) {
+            return .Win;
+        } else if (tiles[3] == tiles[4] and tiles[3] == tiles[5] and tiles[3] != Mark.E) {
+            return .Win;
+        } else if (tiles[6] == tiles[7] and tiles[6] == tiles[8] and tiles[6] != Mark.E) {
+            return .Win;
+        } else if (tiles[0] == tiles[3] and tiles[0] == tiles[6] and tiles[0] != Mark.E) {
+            return .Win;
+        } else if (tiles[1] == tiles[4] and tiles[1] == tiles[7] and tiles[1] != Mark.E) {
+            return .Win;
+        } else if (tiles[2] == tiles[5] and tiles[2] == tiles[8] and tiles[2] != Mark.E) {
+            return .Win;
+        } else if (tiles[0] == tiles[4] and tiles[0] == tiles[8] and tiles[0] != Mark.E) {
+            return .Win;
+        } else if (tiles[2] == tiles[4] and tiles[2] == tiles[6] and tiles[2] != Mark.E) {
+            return .Win;
+        }
+
+        // check if all tiles are filled, if they are then its a draw
+        var allTilesFilled = true;
+        for (0..8) |i| {
+            allTilesFilled = allTilesFilled and tiles[i] != Mark.E;
+        }
+
+        if (allTilesFilled) {
+            return .Draw;
+        }
+
+        return .None;
     }
 };
 
@@ -62,16 +100,29 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     }
 }
 
+fn handleInput(input: []const u8) error{IllegalTileIdx}!usize {
+    const tileIdx = std.fmt.parseInt(usize, input, 10) catch {
+        return error.IllegalTileIdx;
+    };
+
+    if (tileIdx < 0 or tileIdx > 8) {
+        // deal with illegal tileIdx
+        return error.IllegalTileIdx;
+    } else {
+        return tileIdx;
+    }
+}
+
 pub fn main() !void {
     var board = Board{ .tiles = [9]Mark{
         .E, .E, .E,
         .E, .E, .E,
         .E, .E, .E,
     } };
-    board.tiles[0] = Mark.X;
-    board.tiles[3] = Mark.X;
-    board.setTile(4, Mark.O);
+
     board.print();
+
+    var game = Game{ .board = board, .playerIsX = true };
 
     var running = true;
 
@@ -81,7 +132,29 @@ pub fn main() !void {
     while (running) {
         std.debug.print("Your move: ", .{});
         const input = (try nextLine(stdin.reader(), &buffer)).?;
-        std.debug.print("input: {s}\n", .{input});
+        const tileIdx = handleInput(input) catch {
+            std.debug.print("Illegal input!\n", .{});
+            continue;
+        };
+        const didMove = game.move(tileIdx);
+        if (!didMove) {
+            std.debug.print("Tile is occupied, try again!\n", .{});
+        }
+        const winCondition = game.checkWinCondition();
+        switch (winCondition) {
+            .Win => {
+                if (game.playerIsX) {
+                    std.debug.print("Player X is the Winner!!!\n", .{});
+                } else {
+                    std.debug.print("Player X is the Winner!!!\n", .{});
+                }
+            },
+            .Draw => {
+                std.debug.print("Its a Draw...\n", .{});
+            },
+            .None => {},
+        }
+        game.board.print();
     }
 }
 
